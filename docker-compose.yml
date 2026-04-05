@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: manu-pos-db
+    environment:
+      POSTGRES_DB: manu_pos
+      POSTGRES_USER: manu_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-manu_secret_2024}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manu_admin -d manu_pos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: manu-pos-api
+    environment:
+      DATABASE_URL: postgresql://manu_admin:${DB_PASSWORD:-manu_secret_2024}@postgres:5432/manu_pos
+      JWT_SECRET: ${JWT_SECRET:-manu-aguachiles-jwt-secret-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-8h}
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: manu-pos-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
